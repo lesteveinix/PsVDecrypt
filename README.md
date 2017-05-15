@@ -6,6 +6,10 @@ Video file decryptor for a famous online developer training site.
 
 Download the courses with the offline player, then run this tool.
 
+# Windows binary
+
+https://github.com/KevinWang15/PsVDecrypt/releases
+
 # Disclaimer
 
 Please, only use it for your convenience so that you can watch the course videos on your iPod, TV, etc.
