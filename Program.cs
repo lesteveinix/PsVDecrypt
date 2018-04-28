@@ -1,11 +1,14 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Data.SQLite;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 
 namespace PsVDecrypt
@@ -14,6 +17,18 @@ namespace PsVDecrypt
     {
         private static readonly string OutputDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
         private static SQLiteConnection _dbConn;
+        private static Hashtable mapCourseNameToCourseTitle = new Hashtable();
+
+        private static string getCourseTitle(string courseName)
+        {
+            if (mapCourseNameToCourseTitle.ContainsKey(courseName))
+            {
+                return (string) mapCourseNameToCourseTitle[courseName];
+            }
+
+            // fallback to courseName
+            return courseName;
+        }
 
         private static void Main(string[] args)
         {
@@ -39,6 +54,17 @@ namespace PsVDecrypt
             _dbConn = new SQLiteConnection("Data Source=" + dbdir + ";Version=3;");
             _dbConn.Open();
 
+            // Build map: mapCourseNameToCourseTitle
+            var command =
+                new SQLiteCommand("select * from Course", _dbConn) { CommandType = CommandType.Text };
+            var reader = command.ExecuteReader();
+            var dataTable = new DataTable();
+            dataTable.Load(reader);
+            for (var i = 0; i < dataTable.Rows.Count; i++)
+            {
+                mapCourseNameToCourseTitle.Add(dataTable.Rows[i]["Name"], dataTable.Rows[i]["Title"]);                
+            }
+
             Console.WriteLine("Courses directory: " + coursesdir);
             Console.WriteLine("Output Directory: " + OutputDir);
 
@@ -47,7 +73,7 @@ namespace PsVDecrypt
 
             foreach (var subdir in subdirs)
             {
-                Console.WriteLine(" > " + Path.GetFileName(subdir));
+                Console.WriteLine(" > " + getCourseTitle(Path.GetFileName(subdir)) + "  (" + Path.GetFileName(subdir) + ")");
             }
 
             if (!Directory.Exists(OutputDir))
@@ -70,9 +96,9 @@ namespace PsVDecrypt
         private static void DecryptCourse(string courseSrcDir)
         {
             var courseName = Path.GetFileName(courseSrcDir);
-            var courseDstDir = Path.Combine(OutputDir, courseName);
+            var courseDstDir = Path.Combine(OutputDir, Regex.Replace(getCourseTitle(courseName), @"[<>:""/\\|?*]", "_"));
             var hasTranscript = false;
-            Console.WriteLine("Processing course " + courseName + " ..");
+            Console.WriteLine("Processing course " + getCourseTitle(courseName) + " ..");
 
             // Reset Directory
             if (Directory.Exists(courseDstDir))
@@ -84,13 +110,13 @@ namespace PsVDecrypt
 
             try
             {
-            // Copy Image
-            File.Copy(Path.Combine(courseSrcDir, "image.jpg"), Path.Combine(courseDstDir, "image.jpg"));
-            Console.WriteLine(" > Done copying course image.");
+                // Copy Image
+                File.Copy(Path.Combine(courseSrcDir, "image.jpg"), Path.Combine(courseDstDir, "image.jpg"));
+                Console.WriteLine(" > Done copying course image.");
             }
-            catch (Exception exc)
+            catch
             {
-                Console.WriteLine("Oop. The image file must not be found. Never mind.");
+                // ignored
             }
 
             // Read Course Info
