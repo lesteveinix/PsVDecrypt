@@ -37,7 +37,6 @@ namespace PsVDecrypt
                 "Pluralsight", "courses");
             if (!Directory.Exists(coursesdir))
             {
-                //C:\Users\laserk\AppData\Local\Pluralsight\courses
                 Console.WriteLine("Pluralsight courses directory:");
                 Console.WriteLine(coursesdir);
                 Console.WriteLine("not found");
