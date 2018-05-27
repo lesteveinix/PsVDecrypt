@@ -37,8 +37,16 @@ namespace PsVDecrypt
                 "Pluralsight", "courses");
             if (!Directory.Exists(coursesdir))
             {
-                Console.WriteLine("Pluralsight courses directory not found");
-                Environment.Exit(-1);
+                Console.WriteLine("Pluralsight courses directory:");
+                Console.WriteLine(coursesdir);
+                Console.WriteLine("not found");
+                Console.WriteLine("Please enter the full path of Pluralsight courses directory");
+                coursesdir = Console.ReadLine();
+                if (!Directory.Exists(coursesdir))
+                {
+                    Console.WriteLine("User input courses directory not found");
+                    Environment.Exit(-1);
+                }
             }
 
             var dbdir = Path.Combine(
@@ -47,8 +55,16 @@ namespace PsVDecrypt
 
             if (!File.Exists(dbdir))
             {
-                Console.WriteLine("Pluralsight database not found");
-                Environment.Exit(-1);
+                Console.WriteLine("Pluralsight database directory:");
+                Console.WriteLine(dbdir);
+                Console.WriteLine("not found");
+                Console.WriteLine("Please enter the full path of Pluralsight database directory");
+                dbdir = Console.ReadLine();
+                if (!Directory.Exists(dbdir))
+                {
+                    Console.WriteLine("Pluralsight database not found");
+                    Environment.Exit(-1);
+                }
             }
 
             _dbConn = new SQLiteConnection("Data Source=" + dbdir + ";Version=3;");
@@ -91,6 +107,8 @@ namespace PsVDecrypt
             }
 
             Console.WriteLine(" > All done.\n");
+            Console.WriteLine("\nPress any key to exit..\n");
+            Console.ReadKey();
         }
 
         private static void DecryptCourse(string courseSrcDir)
