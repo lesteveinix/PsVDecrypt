@@ -18,7 +18,7 @@ namespace PsVDecrypt
         private static readonly string OutputDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
         private static SQLiteConnection _dbConn;
         private static Hashtable mapCourseNameToCourseTitle = new Hashtable();
-
+        private const int MAX_PATH = 260;
         private static string getCourseTitle(string courseName)
         {
             if (mapCourseNameToCourseTitle.ContainsKey(courseName))
@@ -36,7 +36,7 @@ namespace PsVDecrypt
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Pluralsight", "courses");
             if (!Directory.Exists(coursesdir))
-            {
+            {  
                 Console.WriteLine("Pluralsight courses directory:");
                 Console.WriteLine(coursesdir);
                 Console.WriteLine("not found");
@@ -183,6 +183,11 @@ namespace PsVDecrypt
                 var moduleDstDir = Path.Combine(courseDstDir,
                     (moduleItem["ModuleIndex"].ToString()).PadLeft(2, '0') + "." +
                     Util.TitleToFileName(moduleItem["Title"] as string));
+
+                if (moduleDstDir.Length >= (MAX_PATH - 12))
+                    moduleDstDir = Path.Combine(courseDstDir,
+                        (moduleItem["ModuleIndex"].ToString()).PadLeft(2, '0'));
+
                 if (!Directory.Exists(moduleDstDir))
                     Util.CreateDirectory(moduleDstDir);
 
@@ -216,6 +221,9 @@ namespace PsVDecrypt
                     var clipDst = Path.Combine(moduleDstDir,
                                       (clipItem["ClipIndex"].ToString()).PadLeft(2, '0') + "." +
                                       Util.TitleToFileName((string) clipItem["Title"])) + ".mp4";
+                    if (clipDst.Length >= (MAX_PATH-5))
+                        clipDst = Path.Combine(moduleDstDir,
+                                      (clipItem["ClipIndex"].ToString()).PadLeft(2, '0') ) + ".mp4";
 
                     // Decrypt Clip
                     Util.DecryptFile(clipSrc, clipDst);
