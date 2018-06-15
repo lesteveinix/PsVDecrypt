@@ -8,15 +8,96 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
+using rohankapoor.AutoPrompt;
 
 namespace PsVDecrypt
 {
     public class Program
     {
-        private static readonly string OutputDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
         private static SQLiteConnection _dbConn;
         private static readonly Hashtable MapCourseNameToCourseTitle = new Hashtable();
         private const int MaxPath = 260;
+
+        internal static void Main(string[] args)
+        {
+            var defaultCoursesDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Pluralsight", "courses");
+
+            string coursesFolder;
+            string dbPath;
+            string outputFolder;
+
+            do
+            {
+                coursesFolder = AutoPrompt
+                .PromptForInput("Pluralsight courses folder? Enter to accept default, backspace to change.\n ",
+                    defaultCoursesDir);
+            }
+            while (!Directory.Exists(coursesFolder));
+
+            var defaultDbPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Pluralsight", "pluralsight.db");
+
+            do
+            {
+                dbPath = AutoPrompt
+                    .PromptForInput("Pluralsight.db path? Enter to accept default, backspace to change.\n",
+                        defaultDbPath);
+            }
+            while (!File.Exists(dbPath));
+
+            var defaultOutputDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
+
+            do
+            {
+                outputFolder = AutoPrompt
+                    .PromptForInput("Output folder? Enter to accept default, backspace to change.\n ",
+                        defaultOutputDir);
+            }
+            while (string.IsNullOrEmpty(outputFolder));
+
+            if (!Directory.Exists(outputFolder))
+                Util.CreateDirectory(outputFolder);
+
+            Console.WriteLine("Courses folder: " + coursesFolder);
+            Console.WriteLine("Output folder: " + outputFolder);
+
+            _dbConn = new SQLiteConnection("Data Source=" + dbPath + ";Version=3;");
+            _dbConn.Open();
+
+            GetFolderToCourseMapping();
+
+            string[] subDirs = Directory.GetDirectories(coursesFolder);
+
+            if (subDirs.Length == 0)
+                Console.WriteLine("\nNo course found.");
+
+            Console.WriteLine("\nFound " + subDirs.Length + " course(s):\n");
+            for (var i = 0; i < subDirs.Length; i++)
+            {
+                var dir = subDirs[i];
+                Console.WriteLine($"{i + 1}. " + GetCourseTitle(Path.GetFileName(dir)) + "  (" + Path.GetFileName(dir) + ")");
+            }
+
+            var courseFolderId = AutoPrompt.PromptForInput("\nSelect course to decrypt: (Press up/down to choose)\n",
+                Enumerable.Range(1, subDirs.Length).Select(i => i.ToString()).ToArray(),
+                false);
+
+            var courseFolder = subDirs[Convert.ToInt32(courseFolderId) - 1];
+
+            // System.Threading.Thread.Sleep(500);
+            Console.WriteLine("\nPress any key to start decrypting the course...\n");
+            Console.ReadKey();
+
+            DecryptCourse(courseFolder, outputFolder);
+
+            Console.WriteLine("All done.\n\n");
+            Console.WriteLine("Press any key to exit.\n");
+            Console.ReadKey();
+        }
+
         private static string GetCourseTitle(string courseName)
         {
             if (MapCourseNameToCourseTitle.ContainsKey(courseName))
@@ -28,46 +109,8 @@ namespace PsVDecrypt
             return courseName;
         }
 
-        private static void Main(string[] args)
+        private static void GetFolderToCourseMapping()
         {
-            var coursesdir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Pluralsight", "courses");
-            if (!Directory.Exists(coursesdir))
-            {
-                Console.WriteLine("Pluralsight courses directory:");
-                Console.WriteLine(coursesdir);
-                Console.WriteLine("not found");
-                Console.WriteLine("Please enter the full path of Pluralsight courses directory");
-                coursesdir = Console.ReadLine();
-                if (!Directory.Exists(coursesdir))
-                {
-                    Console.WriteLine("User input courses directory not found");
-                    Environment.Exit(-1);
-                }
-            }
-
-            var dbdir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Pluralsight", "pluralsight.db");
-
-            if (!File.Exists(dbdir))
-            {
-                Console.WriteLine("Pluralsight database directory:");
-                Console.WriteLine(dbdir);
-                Console.WriteLine("not found");
-                Console.WriteLine("Please enter the full path of Pluralsight database directory");
-                dbdir = Console.ReadLine();
-                if (!Directory.Exists(dbdir))
-                {
-                    Console.WriteLine("Pluralsight database not found");
-                    Environment.Exit(-1);
-                }
-            }
-
-            _dbConn = new SQLiteConnection("Data Source=" + dbdir + ";Version=3;");
-            _dbConn.Open();
-
             // Build map: mapCourseNameToCourseTitle
             var command =
                 new SQLiteCommand("select * from Course", _dbConn) { CommandType = CommandType.Text };
@@ -78,51 +121,21 @@ namespace PsVDecrypt
             {
                 MapCourseNameToCourseTitle.Add(dataTable.Rows[i]["Name"], dataTable.Rows[i]["Title"]);
             }
-
-            Console.WriteLine("Courses directory: " + coursesdir);
-            Console.WriteLine("Output Directory: " + OutputDir);
-
-            var subdirs = Directory.GetDirectories(coursesdir);
-            Console.WriteLine("\nFound " + subdirs.Length + " course(s):");
-
-            foreach (var subdir in subdirs)
-            {
-                Console.WriteLine(" > " + GetCourseTitle(Path.GetFileName(subdir)) + "  (" + Path.GetFileName(subdir) + ")");
-            }
-
-            if (!Directory.Exists(OutputDir))
-            {
-                Util.CreateDirectory(OutputDir);
-            }
-
-            System.Threading.Thread.Sleep(500);
-            Console.WriteLine("\nPress any key to start decrypting all courses..\n");
-            Console.ReadKey();
-
-            foreach (var subdir in subdirs)
-            {
-                DecryptCourse(subdir);
-            }
-
-            Console.WriteLine(" > All done.\n");
-            Console.WriteLine("\nPress any key to exit..\n");
-            Console.ReadKey();
         }
 
-        private static void DecryptCourse(string courseSrcDir)
+        private static void DecryptCourse(string courseSrcDir, string outputFolder)
         {
             var courseName = Path.GetFileName(courseSrcDir);
-            var courseDstDir = Path.Combine(OutputDir, Regex.Replace(GetCourseTitle(courseName), @"[<>:""/\\|?*]", "_"));
+            var courseDstDir = Path.Combine(outputFolder, 
+                Regex.Replace(GetCourseTitle(courseName), @"[<>:""/\\|?*]", "_"));
 
-            Console.WriteLine("Processing course " + GetCourseTitle(courseName) + " ..");
+            Console.WriteLine("Processing course: " + GetCourseTitle(courseName) + "...");
 
             // Reset Directory
             if (Directory.Exists(courseDstDir))
-            {
                 Util.DeleteDirectory(courseDstDir);
-            }
-            Util.CreateDirectory(courseDstDir);
 
+            Util.CreateDirectory(courseDstDir);
 
             try
             {
@@ -130,9 +143,10 @@ namespace PsVDecrypt
                 File.Copy(Path.Combine(courseSrcDir, "image.jpg"), Path.Combine(courseDstDir, "image.jpg"));
                 Console.WriteLine(" > Done copying course image.");
             }
-            catch
+            catch (Exception ex)
             {
                 // ignored
+                Console.WriteLine(ex.Message);
             }
 
             // Read Course Info
@@ -142,6 +156,7 @@ namespace PsVDecrypt
             var reader = command.ExecuteReader();
             var dataTable = new DataTable();
             dataTable.Load(reader);
+
             if (dataTable.Rows.Count == 0)
             {
                 Console.WriteLine(" > Error: cannot find course in database.");
