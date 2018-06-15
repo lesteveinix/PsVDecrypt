@@ -43,7 +43,7 @@ namespace PsVDecrypt
             do
             {
                 dbPath = AutoPrompt
-                    .PromptForInput("Pluralsight.db path? Enter to accept default, backspace to change.\n",
+                    .PromptForInput("\nPluralsight.db path? Enter to accept default, backspace to change.\n",
                         defaultDbPath);
             }
             while (!File.Exists(dbPath));
@@ -53,7 +53,7 @@ namespace PsVDecrypt
             do
             {
                 outputFolder = AutoPrompt
-                    .PromptForInput("Output folder? Enter to accept default, backspace to change.\n ",
+                    .PromptForInput("\nOutput folder? Enter to accept default, backspace to change.\n",
                         defaultOutputDir);
             }
             while (string.IsNullOrEmpty(outputFolder));
@@ -81,14 +81,14 @@ namespace PsVDecrypt
                 Console.WriteLine($"{i + 1}. " + GetCourseTitle(Path.GetFileName(dir)) + "  (" + Path.GetFileName(dir) + ")");
             }
 
-            var courseFolderId = AutoPrompt.PromptForInput("\nSelect course to decrypt: (Press up/down to choose)\n",
+            var courseFolderId = AutoPrompt.PromptForInput("\nSelect course to decrypt: (Press up/down to choose.)\n",
                 Enumerable.Range(1, subDirs.Length).Select(i => i.ToString()).ToArray(),
                 false);
 
             var courseFolder = subDirs[Convert.ToInt32(courseFolderId) - 1];
 
             // System.Threading.Thread.Sleep(500);
-            Console.WriteLine("\nPress any key to start decrypting the course...\n");
+            Console.WriteLine("\nStart decrypting the course? (Press any key to continue.)\n");
             Console.ReadKey();
 
             DecryptCourse(courseFolder, outputFolder);
