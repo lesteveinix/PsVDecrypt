@@ -4,9 +4,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Data.SQLite;
-using System.Diagnostics;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
@@ -17,13 +15,13 @@ namespace PsVDecrypt
     {
         private static readonly string OutputDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
         private static SQLiteConnection _dbConn;
-        private static Hashtable mapCourseNameToCourseTitle = new Hashtable();
-        private const int MAX_PATH = 260;
-        private static string getCourseTitle(string courseName)
+        private static readonly Hashtable MapCourseNameToCourseTitle = new Hashtable();
+        private const int MaxPath = 260;
+        private static string GetCourseTitle(string courseName)
         {
-            if (mapCourseNameToCourseTitle.ContainsKey(courseName))
+            if (MapCourseNameToCourseTitle.ContainsKey(courseName))
             {
-                return (string) mapCourseNameToCourseTitle[courseName];
+                return (string)MapCourseNameToCourseTitle[courseName];
             }
 
             // fallback to courseName
@@ -36,7 +34,7 @@ namespace PsVDecrypt
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Pluralsight", "courses");
             if (!Directory.Exists(coursesdir))
-            {  
+            {
                 Console.WriteLine("Pluralsight courses directory:");
                 Console.WriteLine(coursesdir);
                 Console.WriteLine("not found");
@@ -78,7 +76,7 @@ namespace PsVDecrypt
             dataTable.Load(reader);
             for (var i = 0; i < dataTable.Rows.Count; i++)
             {
-                mapCourseNameToCourseTitle.Add(dataTable.Rows[i]["Name"], dataTable.Rows[i]["Title"]);                
+                MapCourseNameToCourseTitle.Add(dataTable.Rows[i]["Name"], dataTable.Rows[i]["Title"]);
             }
 
             Console.WriteLine("Courses directory: " + coursesdir);
@@ -89,7 +87,7 @@ namespace PsVDecrypt
 
             foreach (var subdir in subdirs)
             {
-                Console.WriteLine(" > " + getCourseTitle(Path.GetFileName(subdir)) + "  (" + Path.GetFileName(subdir) + ")");
+                Console.WriteLine(" > " + GetCourseTitle(Path.GetFileName(subdir)) + "  (" + Path.GetFileName(subdir) + ")");
             }
 
             if (!Directory.Exists(OutputDir))
@@ -114,9 +112,9 @@ namespace PsVDecrypt
         private static void DecryptCourse(string courseSrcDir)
         {
             var courseName = Path.GetFileName(courseSrcDir);
-            var courseDstDir = Path.Combine(OutputDir, Regex.Replace(getCourseTitle(courseName), @"[<>:""/\\|?*]", "_"));
-            var hasTranscript = false;
-            Console.WriteLine("Processing course " + getCourseTitle(courseName) + " ..");
+            var courseDstDir = Path.Combine(OutputDir, Regex.Replace(GetCourseTitle(courseName), @"[<>:""/\\|?*]", "_"));
+
+            Console.WriteLine("Processing course " + GetCourseTitle(courseName) + " ..");
 
             // Reset Directory
             if (Directory.Exists(courseDstDir))
@@ -139,7 +137,7 @@ namespace PsVDecrypt
 
             // Read Course Info
             var command =
-                new SQLiteCommand("select * from Course where Name=@Name", _dbConn) {CommandType = CommandType.Text};
+                new SQLiteCommand("select * from Course where Name=@Name", _dbConn) { CommandType = CommandType.Text };
             command.Parameters.Add(new SQLiteParameter("@Name", courseName));
             var reader = command.ExecuteReader();
             var dataTable = new DataTable();
@@ -150,7 +148,7 @@ namespace PsVDecrypt
                 return;
             }
 
-            hasTranscript = (long) dataTable.Rows[0]["HasTranscript"] == 1;
+            var hasTranscript = (long)dataTable.Rows[0]["HasTranscript"] == 1;
 
             // Save Course Info to JSON
             File.WriteAllText(Path.Combine(courseDstDir, "course-info.json"),
@@ -184,7 +182,7 @@ namespace PsVDecrypt
                     (moduleItem["ModuleIndex"].ToString()).PadLeft(2, '0') + "." +
                     Util.TitleToFileName(moduleItem["Title"] as string));
 
-                if (moduleDstDir.Length >= (MAX_PATH - 12))
+                if (moduleDstDir.Length >= (MaxPath - 12))
                     moduleDstDir = Path.Combine(courseDstDir,
                         (moduleItem["ModuleIndex"].ToString()).PadLeft(2, '0'));
 
@@ -215,61 +213,79 @@ namespace PsVDecrypt
                 // Process Each Clip
                 for (var j = 0; j < clipsDataTable.Rows.Count; j++)
                 {
-                    var clipItem = clipsDataTable.Rows[j];
-                    Console.WriteLine("     > Processing clip: " + clipItem["Title"]);
-                    var clipSrc = Path.Combine(moduleSrcDir, (string) clipItem["Name"]) + ".psv";
-                    var clipDst = Path.Combine(moduleDstDir,
-                                      (clipItem["ClipIndex"].ToString()).PadLeft(2, '0') + "." +
-                                      Util.TitleToFileName((string) clipItem["Title"])) + ".mp4";
-                    if (clipDst.Length >= (MAX_PATH-5))
-                        clipDst = Path.Combine(moduleDstDir,
-                                      (clipItem["ClipIndex"].ToString()).PadLeft(2, '0') ) + ".mp4";
+                    DataRow clipItem = clipsDataTable.Rows[j];
+                    var clipDst = GetClipDestinationPath(moduleDstDir, clipItem);
 
-                    // Decrypt Clip
-                    Util.DecryptFile(clipSrc, clipDst);
-                    Console.WriteLine("       > Done decrypting clip.");
+                    SaveClip(moduleSrcDir, clipItem, clipDst);
 
                     // Save Transcript
-                    if (!hasTranscript) continue;
-                    var transcriptsCommand =
-                        new SQLiteCommand("select * from ClipTranscript where ClipId=@ClipId", _dbConn)
-                        {
-                            CommandType = CommandType.Text
-                        };
-                    transcriptsCommand.Parameters.Add(new SQLiteParameter("@ClipId", clipItem["Id"]));
-                    var transcriptsReader = transcriptsCommand.ExecuteReader();
-                    var transcriptsDataTable = new DataTable();
-                    transcriptsDataTable.Load(transcriptsReader);
-                    if (transcriptsDataTable.Rows.Count == 0) continue;
-
-                    // Generate Srt File
-                    var sb = new StringBuilder();
-                    var sequenceI = 0;
-                    foreach (DataRow transcriptItem in transcriptsDataTable.Rows)
-                    {
-                        sequenceI++;
-                        sb.Append(sequenceI + "\n");
-
-                        var startMs = (long) transcriptItem["StartTime"];
-                        var endMs = (long) transcriptItem["EndTime"];
-                        var startTime = TimeSpan.FromMilliseconds(startMs);
-                        var endTime = TimeSpan.FromMilliseconds(endMs);
-                        sb.Append(startTime.ToString(@"hh\:mm\:ss") + "," + (startMs % 1000));
-                        sb.Append(" --> ");
-                        sb.Append(endTime.ToString(@"hh\:mm\:ss") + "," + (endMs % 1000));
-                        sb.Append("\n");
-
-                        sb.Append(string.Join("\n",
-                            ((string) transcriptItem["Text"]).Replace("\r", "").Split('\n')
-                            .Select(text => "- " + text)));
-                        sb.Append("\n\n");
-                    }
-
-
-                    File.WriteAllText(clipDst + ".srt", sb.ToString());
-                    Console.WriteLine("       > Done saving subtitles.");
+                    if (hasTranscript)
+                        SaveTranscript(clipItem, clipDst);
                 }
             }
+        }
+
+        private static string GetClipDestinationPath(string moduleDstDir, DataRow clipItem)
+        {
+            var clipDst = Path.Combine(moduleDstDir,
+                              clipItem["ClipIndex"].ToString().PadLeft(2, '0') + "." +
+                              Util.TitleToFileName((string)clipItem["Title"])) + ".mp4";
+
+            if (clipDst.Length >= MaxPath - 5)
+                clipDst = Path.Combine(moduleDstDir,
+                              clipItem["ClipIndex"].ToString().PadLeft(2, '0')) + ".mp4";
+            return clipDst;
+        }
+
+        private static void SaveClip(string moduleSrcDir, DataRow clipItem, string clipDst)
+        {
+            Console.WriteLine("     > Processing clip: " + clipItem["Title"]);
+            var clipSrc = Path.Combine(moduleSrcDir, (string)clipItem["Name"]) + ".psv";
+
+            // Decrypt Clip
+            Util.DecryptFile(clipSrc, clipDst);
+            Console.WriteLine("       > Done decrypting clip.");
+        }
+
+        private static void SaveTranscript(DataRow clipItem, string clipDst)
+        {
+            var transcriptsCommand =
+                new SQLiteCommand("select * from ClipTranscript where ClipId=@ClipId", _dbConn)
+                {
+                    CommandType = CommandType.Text
+                };
+            transcriptsCommand.Parameters.Add(new SQLiteParameter("@ClipId", clipItem["Id"]));
+            var transcriptsReader = transcriptsCommand.ExecuteReader();
+            var transcriptsDataTable = new DataTable();
+            transcriptsDataTable.Load(transcriptsReader);
+
+            if (transcriptsDataTable.Rows.Count == 0) return;
+
+            // Generate Srt File
+            var sb = new StringBuilder();
+            var sequenceI = 0;
+            foreach (DataRow transcriptItem in transcriptsDataTable.Rows)
+            {
+                sequenceI++;
+                sb.Append(sequenceI + "\n");
+
+                var startMs = (long)transcriptItem["StartTime"];
+                var endMs = (long)transcriptItem["EndTime"];
+                var startTime = TimeSpan.FromMilliseconds(startMs);
+                var endTime = TimeSpan.FromMilliseconds(endMs);
+                sb.Append(startTime.ToString(@"hh\:mm\:ss") + "," + (startMs % 1000));
+                sb.Append(" --> ");
+                sb.Append(endTime.ToString(@"hh\:mm\:ss") + "," + (endMs % 1000));
+                sb.Append("\n");
+
+                sb.Append(string.Join("\n",
+                    ((string)transcriptItem["Text"]).Replace("\r", "").Split('\n')
+                    .Select(text => "- " + text)));
+                sb.Append("\n\n");
+            }
+
+            File.WriteAllText(clipDst + ".srt", sb.ToString());
+            Console.WriteLine("       > Done saving subtitles.");
         }
     }
 }

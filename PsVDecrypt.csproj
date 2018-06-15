@@ -51,11 +51,11 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="EntityFramework" Version="6.0.0.0"/>
-    <PackageReference Include="Newtonsoft.Json" Version="10.0.1"/>
-    <PackageReference Include="System.Data.SQLite" Version="1.0.105.1"/>
-    <PackageReference Include="System.Data.SQLite.EF6" Version="1.0.105.1"/>
-    <PackageReference Include="System.Data.SQLite.Linq" Version="1.0.105.1"/>
+    <PackageReference Include="EntityFramework" Version="6.0.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="10.0.1" />
+    <PackageReference Include="System.Data.SQLite" Version="1.0.105.1" />
+    <PackageReference Include="System.Data.SQLite.EF6" Version="1.0.105.1" />
+    <PackageReference Include="System.Data.SQLite.Linq" Version="1.0.105.1" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />
