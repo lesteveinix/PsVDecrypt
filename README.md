@@ -1,3 +1,14 @@
+Forked from [KevinWang15/PsVDecrypt](https://github.com/KevinWang15/PsVDecrypt) to add more features.
+
+## Changelog:
+v1.2.0
+- Allow user to select which course to decrypt.
+- Allow user to specify the following parameters:
+    - courses folder, pluralsight.db location, output folder.
+- Refactor and clean up codes.
+- Remove unused dependencies.
+- Update nuget packages.
+
 # PsVDecrypt
 
 Video file decryptor for a famous online developer training site.
@@ -10,7 +21,7 @@ Download the courses with the offline player, then run this tool.
 
 # Windows binary
 
-https://github.com/KevinWang15/PsVDecrypt/releases
+https://github.com/vckoh/PsVDecrypt/releases
 
 # Disclaimer
 
