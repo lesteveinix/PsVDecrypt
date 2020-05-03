@@ -1,16 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 using PsVDecrypt.Domain;
 
 namespace PsVDecrypt
 {
-    class Util
+    internal static class Util
     {
         public static void DecryptFile(string srcFile, string dstFile)
         {
@@ -23,9 +19,9 @@ namespace PsVDecrypt
             output.Close();
         }
 
-        public static string GetModuleHash(String Name, String AuthorHandle)
+        public static string GetModuleHash(String name, String authorHandle)
         {
-            string s = Name + "|" + AuthorHandle;
+            string s = name + "|" + authorHandle;
             using (MD5 md5 = MD5.Create())
                 return Convert.ToBase64String(md5.ComputeHash(Encoding.UTF8.GetBytes(s))).Replace('/', '_');
         }
