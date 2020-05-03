@@ -2,8 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
-using System.Data.SQLite;
-using System.Diagnostics;
+using Microsoft.Data.Sqlite;
 using System.Linq;
 using System.Text;
 using Newtonsoft.Json;
@@ -13,7 +12,7 @@ namespace PsVDecrypt
     public class Program
     {
         private static readonly string OutputDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
-        private static SQLiteConnection _dbConn;
+        private static SqliteConnection _dbConn;
 
         private static void Main(string[] args)
         {
@@ -36,7 +35,7 @@ namespace PsVDecrypt
                 Environment.Exit(-1);
             }
 
-            _dbConn = new SQLiteConnection("Data Source=" + dbdir + ";Version=3;");
+            _dbConn = new SqliteConnection("Data Source=" + dbdir + ";Version=3;");
             _dbConn.Open();
 
             Console.WriteLine("Courses directory: " + coursesdir);
@@ -88,8 +87,8 @@ namespace PsVDecrypt
 
             // Read Course Info
             var command =
-                new SQLiteCommand("select * from Course where Name=@Name", _dbConn) {CommandType = CommandType.Text};
-            command.Parameters.Add(new SQLiteParameter("@Name", courseName));
+                new SqliteCommand("select * from Course where Name=@Name", _dbConn) {CommandType = CommandType.Text};
+            command.Parameters.Add(new SqliteParameter("@Name", courseName));
             var reader = command.ExecuteReader();
             var dataTable = new DataTable();
             dataTable.Load(reader);
@@ -107,11 +106,11 @@ namespace PsVDecrypt
             Console.WriteLine(" > Done saving course info.");
 
             // Read Module Info
-            command = new SQLiteCommand("select * from Module where CourseName=@CourseName", _dbConn)
+            command = new SqliteCommand("select * from Module where CourseName=@CourseName", _dbConn)
             {
                 CommandType = CommandType.Text
             };
-            command.Parameters.Add(new SQLiteParameter("@CourseName", courseName));
+            command.Parameters.Add(new SqliteParameter("@CourseName", courseName));
             reader = command.ExecuteReader();
             dataTable = new DataTable();
             dataTable.Load(reader);
@@ -142,11 +141,11 @@ namespace PsVDecrypt
 
                 // Read Clip Info
                 var clipsCommand =
-                    new SQLiteCommand("select * from Clip where ModuleId=@ModuleId", _dbConn)
+                    new SqliteCommand("select * from Clip where ModuleId=@ModuleId", _dbConn)
                     {
                         CommandType = CommandType.Text
                     };
-                clipsCommand.Parameters.Add(new SQLiteParameter("@ModuleId", moduleItem["Id"]));
+                clipsCommand.Parameters.Add(new SqliteParameter("@ModuleId", moduleItem["Id"]));
                 var clipsReader = clipsCommand.ExecuteReader();
                 var clipsDataTable = new DataTable();
                 clipsDataTable.Load(clipsReader);
@@ -171,13 +170,15 @@ namespace PsVDecrypt
                     Console.WriteLine("       > Done decrypting clip.");
 
                     // Save Transcript
-                    if (!hasTranscript) continue;
+                    if (!hasTranscript) 
+                        continue;
+
                     var transcriptsCommand =
-                        new SQLiteCommand("select * from ClipTranscript where ClipId=@ClipId", _dbConn)
+                        new SqliteCommand("select * from ClipTranscript where ClipId=@ClipId", _dbConn)
                         {
                             CommandType = CommandType.Text
                         };
-                    transcriptsCommand.Parameters.Add(new SQLiteParameter("@ClipId", clipItem["Id"]));
+                    transcriptsCommand.Parameters.Add(new SqliteParameter("@ClipId", clipItem["Id"]));
                     var transcriptsReader = transcriptsCommand.ExecuteReader();
                     var transcriptsDataTable = new DataTable();
                     transcriptsDataTable.Load(transcriptsReader);
