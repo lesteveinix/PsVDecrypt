@@ -1,25 +1,21 @@
-﻿using PsVDecrypt.Domain;
-using System;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.ComTypes;
+﻿using System;
 
 namespace PsVDecrypt.Domain
 {
     internal class VirtualFileStream : IDisposable
     {
-        private readonly object _Lock = new object();
-        private long position;
-        private VirtualFileCache _Cache;
+        // private readonly object _lock = new object();
+        private long _position;
+        private VirtualFileCache _cache;
 
-        public VirtualFileStream(string EncryptedVideoFilePath)
+        public VirtualFileStream(string encryptedVideoFilePath)
         {
-            this._Cache = new VirtualFileCache(EncryptedVideoFilePath);
+            _cache = new VirtualFileCache(encryptedVideoFilePath);
         }
 
-        private VirtualFileStream(VirtualFileCache Cache)
+        private VirtualFileStream(VirtualFileCache cache)
         {
-            this._Cache = Cache;
+            _cache = cache;
         }
 
         public byte[] ReadAll()
@@ -28,16 +24,16 @@ namespace PsVDecrypt.Domain
             {
                 int pcbReadSign = 1;
                 IntPtr pcbRead = new IntPtr(&pcbReadSign);
-                var length = this._Cache.Length;
+                var length = _cache.Length;
                 var pv = new byte[length];
-                this._Cache.Read(pv, (int) this.position, (int) length, pcbRead);
+                _cache.Read(pv, (int) _position, (int) length, pcbRead);
                 return pv;
             }
         }
 
         public void Dispose()
         {
-            this._Cache.Dispose();
+            _cache.Dispose();
         }
     }
 }
